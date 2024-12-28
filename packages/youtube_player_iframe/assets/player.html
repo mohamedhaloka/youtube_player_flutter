@@ -1,177 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <style>
-      html {
-        width: 100%;
-        height: 100%;
-        background-color: black;
-        pointer-events: <<pointerEvents>>;
-      }
+        html {
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            pointer-events: auto;
+        }
 
-      body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        background-color: black;
-        pointer-events: inherit;
-      }
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            pointer-events: inherit;
+        }
 
-      .embed-container iframe,
-      .embed-container object,
-      .embed-container embed {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100% !important;
-        height: 100% !important;
-        pointer-events: inherit;
-      }
+        .embed-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: black; /* Ensures a black screen before video loads */
+        }
+
+        .embed-container iframe,
+        .embed-container object,
+        .embed-container embed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            pointer-events: inherit;
+        }
     </style>
     <title>Youtube Player</title>
-  </head>
+</head>
 
-  <body>
-    <div class="embed-container">
-      <div id="<<playerId>>"></div>
-    </div>
+<body>
+<div class="embed-container">
+    <div id="youtube-player"></div>
+</div>
 
-    <script>
-      var tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      var firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+<script>
+    var tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName("script")[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-      var platform = "<<platform>>";
-      var host = "<<host>>";
-      var player;
-      var timerId;
+    var platform = "web"; // Specify platform type if needed
+    var host = "https://www.youtube.com"; // Specify host
+    var player;
+    var timerId;
 
-      function onYouTubeIframeAPIReady() {
-        player = new YT.Player("<<playerId>>", {
-          host: host,
-          playerVars: <<playerVars>>,
-          events: {
-            onReady: function (event) {
-              handleFullScreenForMobilePlatform();
-              sendMessage('Ready', event);
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player("youtube-player", {
+            host: host,
+            playerVars: {
+                videoId: "qDcT4OvbWM", // Hardcoded video ID
+                autoplay: 0,           // No autoplay to keep the black screen initially
+                controls: 1,
+                modestbranding: 1,
+                showinfo: 0
             },
-            onStateChange: function (event) {
-              clearTimeout(timerId);
-              sendMessage('StateChange', event.data);
-              if (event.data == 1) {
-                timerId = setInterval(function () {
-                  var state = {
-                    'currentTime': player.getCurrentTime(),
-                    'loadedFraction': player.getVideoLoadedFraction()
-                  };
-
-                  sendMessage('VideoState', JSON.stringify(state));
-                }, 100);
-              }
+            events: {
+                onReady: function (event) {
+                    handleFullScreenForMobilePlatform();
+                    sendMessage('Ready', event);
+                },
+                onStateChange: function (event) {
+                    clearTimeout(timerId);
+                    sendMessage('StateChange', event.data);
+                    if (event.data == 1) {
+                        timerId = setInterval(function () {
+                            var state = {
+                                'currentTime': player.getCurrentTime(),
+                                'loadedFraction': player.getVideoLoadedFraction()
+                            };
+                            sendMessage('VideoState', JSON.stringify(state));
+                        }, 100);
+                    }
+                },
+                onPlaybackQualityChange: function (event) {
+                    sendMessage('PlaybackQualityChange', event.data);
+                },
+                onPlaybackRateChange: function (event) {
+                    sendMessage('PlaybackRateChange', event.data);
+                },
+                onApiChange: function (event) {
+                    sendMessage('ApiChange', event.data);
+                },
+                onError: function (event) {
+                    sendMessage('PlayerError', event.data);
+                },
+                onAutoplayBlocked: function (event) {
+                    sendMessage('AutoplayBlocked', event.data);
+                },
             },
-            onPlaybackQualityChange: function (event) {
-              sendMessage('PlaybackQualityChange', event.data);
-            },
-            onPlaybackRateChange: function (event) {
-              sendMessage('PlaybackRateChange', event.data);
-            },
-            onApiChange: function (event) {
-              sendMessage('ApiChange', event.data);
-            },
-            onError: function (event) {
-              sendMessage('PlayerError', event.data);
-            },
-            onAutoplayBlocked: function (event) {
-              sendMessage('AutoplayBlocked', event.data);
-            },
-          },
         });
         player.setSize(window.innerWidth, window.innerHeight);
-      }
+    }
 
-      window.addEventListener('message', (event) => {
+    window.addEventListener('message', (event) => {
         try {
-          var data = JSON.parse(event.data);
+            var data = JSON.parse(event.data);
 
-          if(data.function){
-            var rawFunction = data.function.replaceAll('<<quote>>', '"');
-            var result = eval(rawFunction);
+            if (data.function) {
+                var rawFunction = data.function.replaceAll('<<quote>>', '"');
+                var result = eval(rawFunction);
 
-            if(data.key) {
-              var message = {}
-              message[data.key] = result
-              var messageString = JSON.stringify(message);
+                if (data.key) {
+                    var message = {}
+                    message[data.key] = result;
+                    var messageString = JSON.stringify(message);
 
-              event.source.postMessage(messageString , '*');
+                    event.source.postMessage(messageString, '*');
+                }
             }
-          }
         } catch (e) { }
-      }, false);
+    }, false);
 
-      window.onresize = function () {
+    window.onresize = function () {
         player.setSize(window.innerWidth, window.innerHeight);
-      };
+    };
 
-      function sendPlatformMessage(message) {
-        switch(platform) {
-           case 'android':
-             <<playerId>>.postMessage(message);
-             break;
-           case 'ios':
-             <<playerId>>.postMessage(message, '*');
-             break;
-           case 'web':
-             window.parent.postMessage(message, '*');
-             break;
-         }
-      }
+    function sendPlatformMessage(message) {
+        switch (platform) {
+            case 'android':
+                youtube-player.postMessage(message);
+                break;
+            case 'ios':
+                youtube-player.postMessage(message, '*');
+                break;
+            case 'web':
+                window.parent.postMessage(message, '*');
+                break;
+        }
+    }
 
-      function sendMessage(key, data) {
-         var message = {};
-         message[key] = data;
-         message['playerId'] = '<<playerId>>';
-         var messageString = JSON.stringify(message);
+    function sendMessage(key, data) {
+        var message = {};
+        message[key] = data;
+        message['playerId'] = 'youtube-player';
+        var messageString = JSON.stringify(message);
 
-         sendPlatformMessage(messageString);
-      }
+        sendPlatformMessage(messageString);
+    }
 
-      function getVideoData() {
+    function getVideoData() {
         return prepareDataForPlatform(player.getVideoData());
-      }
+    }
 
-      function getPlaylist() {
+    function getPlaylist() {
         return prepareDataForPlatform(player.getPlaylist());
-      }
+    }
 
-      function getAvailablePlaybackRates(){
+    function getAvailablePlaybackRates() {
         return prepareDataForPlatform(player.getAvailablePlaybackRates());
-      }
+    }
 
-      function prepareDataForPlatform(data) {
-        if(platform == 'android') return data;
+    function prepareDataForPlatform(data) {
+        if (platform == 'android') return data;
 
         return JSON.stringify(data);
-      }
+    }
 
-      function handleFullScreenForMobilePlatform() {
-        if(platform != 'web') {
-          var ytFrame = document.getElementsByTagName('iframe')[0].contentWindow.document;
-          var fsButton = ytFrame.getElementsByClassName('ytp-fullscreen-button ytp-button')[0];
+    function handleFullScreenForMobilePlatform() {
+        if (platform != 'web') {
+            var ytFrame = document.getElementsByTagName('iframe')[0].contentWindow.document;
+            var fsButton = ytFrame.getElementsByClassName('ytp-fullscreen-button ytp-button')[0];
 
-          if(fsButton != null) {
-            var fsButtonCopy = fsButton.cloneNode(true);
-            fsButton.replaceWith(fsButtonCopy);
-            fsButtonCopy.onclick = function() {
-              sendMessage('FullscreenButtonPressed', '');
-            };
-          }
+            if (fsButton != null) {
+                var fsButtonCopy = fsButton.cloneNode(true);
+                fsButton.replaceWith(fsButtonCopy);
+                fsButtonCopy.onclick = function () {
+                    sendMessage('FullscreenButtonPressed', '');
+                };
+            }
         }
-      }
-    </script>
-  </body>
+    }
+</script>
+</body>
 </html>
